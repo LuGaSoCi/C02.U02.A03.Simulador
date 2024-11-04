@@ -15,12 +15,12 @@ import (
     "image/color"
 )
 
-type CustomLabel struct {
+type StyledLabel struct {
     widget.Label
 }
 
-func NewCustomLabel(text string) *CustomLabel {
-    label := &CustomLabel{}
+func NewStyledLabel(text string) *StyledLabel {
+    label := &StyledLabel{}
     label.ExtendBaseWidget(label)
     label.SetText(text)
     label.Alignment = fyne.TextAlignCenter
@@ -29,103 +29,102 @@ func NewCustomLabel(text string) *CustomLabel {
     return label
 }
 
-func (c *CustomLabel) MinSize() fyne.Size {
+func (label *StyledLabel) MinSize() fyne.Size {
     return fyne.NewSize(250, 20)
 }
 
-func CreateWindow(app fyne.App, parkingService *service.ParkingService, duration float64, totalCars int) fyne.Window {
-    myWindow := app.NewWindow("Parking Simulator")
+func GenerateWindow(app fyne.App, parkingServiceHandler *service.ParkingServiceHandler, duration float64, carCount int) fyne.Window {
+    window := app.NewWindow("Parking Simulator")
 
     background := canvas.NewImageFromFile("./assets/background.jpg")
     background.FillMode = canvas.ImageFillStretch
 
-    containers := make([]*fyne.Container, parkingService.Capacity())
-    texts := make([]*canvas.Text, parkingService.Capacity())
-    carImages := make([]*canvas.Image, parkingService.Capacity())
+    parkingSlots := make([]*fyne.Container, parkingServiceHandler.TotalCapacity())
+    slotTexts := make([]*canvas.Text, parkingServiceHandler.TotalCapacity())
+    vehicleImages := make([]*canvas.Image, parkingServiceHandler.TotalCapacity())
 
-    grid := container.New(layout.NewGridLayoutWithColumns(2))
+    layoutGrid := container.New(layout.NewGridLayoutWithColumns(2))
 
-    for i := 0; i < parkingService.Capacity(); i++ {
-        texts[i] = canvas.NewText(fmt.Sprintf("Espacio %d: Libre", i+1), theme.ForegroundColor())
-        texts[i].TextSize = 15
-        texts[i].Alignment = fyne.TextAlignCenter
+    for i := 0; i < parkingServiceHandler.TotalCapacity(); i++ {
+        slotTexts[i] = canvas.NewText(fmt.Sprintf("Slot %d: Available", i+1), theme.ForegroundColor())
+        slotTexts[i].TextSize = 15
+        slotTexts[i].Alignment = fyne.TextAlignCenter
 
-        carImages[i] = canvas.NewImageFromFile("./assets/car.png")
-        carImages[i].Resize(fyne.NewSize(75, 30))
-        carImages[i].Hide() 
+        vehicleImages[i] = canvas.NewImageFromFile("./assets/car.png")
+        vehicleImages[i].Resize(fyne.NewSize(75, 30))
+        vehicleImages[i].Hide()
 
-        spotContainer := container.NewWithoutLayout(
-            texts[i],
-            carImages[i],
+        slotContainer := container.NewWithoutLayout(
+            slotTexts[i],
+            vehicleImages[i],
         )
 
-        texts[i].Move(fyne.NewPos(100, 40))
-        carImages[i].Move(fyne.NewPos(70, 40))
+        slotTexts[i].Move(fyne.NewPos(100, 40))
+        vehicleImages[i].Move(fyne.NewPos(70, 40))
 
-        containers[i] = container.New(
+        parkingSlots[i] = container.New(
             layout.NewPaddedLayout(),
-            spotContainer,
+            slotContainer,
         )
 
-        grid.Add(containers[i])
+        layoutGrid.Add(parkingSlots[i])
     }
 
-    content := container.NewStack(
+    contentContainer := container.NewStack(
         background,
-        container.NewPadded(grid),
+        container.NewPadded(layoutGrid),
     )
 
-    scrollContainer := container.NewScroll(content)
+    scrollContainer := container.NewScroll(contentContainer)
 
-    myWindow.SetContent(scrollContainer)
-    myWindow.Resize(fyne.NewSize(500, 900))
-    myWindow.CenterOnScreen()
-    myWindow.Show()
+    window.SetContent(scrollContainer)
+    window.Resize(fyne.NewSize(500, 900))
+    window.CenterOnScreen()
+    window.Show()
 
-    go updateScreenAndTicker(texts, carImages, parkingService)
+    go refreshDisplay(slotTexts, vehicleImages, parkingServiceHandler)
 
-    go generateCars(totalCars, duration, parkingService)
+    go simulateVehicleFlow(carCount, duration, parkingServiceHandler)
 
-    return myWindow
+    return window
 }
 
-func updateParkingDisplay(texts []*canvas.Text, carImages []*canvas.Image, parkingService *service.ParkingService) {
-    occupiedSpaces, vehicleIDs := parkingService.GetOccupiedSpaces()
+func updateParkingSlots(slotTexts []*canvas.Text, vehicleImages []*canvas.Image, parkingServiceHandler *service.ParkingServiceHandler) {
+    occupiedSlots, vehicleIDs := parkingServiceHandler.GetOccupiedSlots()
 
-    for i := range occupiedSpaces {
-        if texts[i] == nil || carImages[i] == nil {
+    for i := range occupiedSlots {
+        if slotTexts[i] == nil || vehicleImages[i] == nil {
             continue
         }
 
-        if occupiedSpaces[i] {
-            text := fmt.Sprintf("\t\t\t#%d  ", vehicleIDs[i])
-            texts[i].Color = color.RGBA{R: 255, G: 0, B: 0, A: 255} // Color rojo
-            texts[i].Text = text
-            carImages[i].Show()
+        if occupiedSlots[i] {
+            slotTexts[i].Text = fmt.Sprintf("\t\t\t#%d  ", vehicleIDs[i])
+            slotTexts[i].Color = color.RGBA{R: 255, G: 0, B: 0, A: 255}
+            vehicleImages[i].Show()
         } else {
-            texts[i].Text = fmt.Sprintf("")
-            texts[i].Color = theme.SuccessColor() // Mantener este color para espacios libres
-            carImages[i].Hide()
+            slotTexts[i].Text = ""
+            slotTexts[i].Color = theme.SuccessColor()
+            vehicleImages[i].Hide()
         }
 
-        texts[i].Refresh()
-        carImages[i].Refresh()
+        slotTexts[i].Refresh()
+        vehicleImages[i].Refresh()
     }
 }
 
-func updateScreenAndTicker(texts []*canvas.Text, carImages []*canvas.Image, parkingService *service.ParkingService) {
+func refreshDisplay(slotTexts []*canvas.Text, vehicleImages []*canvas.Image, parkingServiceHandler *service.ParkingServiceHandler) {
     ticker := time.NewTicker(100 * time.Millisecond)
     defer ticker.Stop()
 
     for range ticker.C {
-        updateParkingDisplay(texts, carImages, parkingService)
+        updateParkingSlots(slotTexts, vehicleImages, parkingServiceHandler)
     }
 }
 
-func generateCars(totalCars int, duration float64, parkingService *service.ParkingService) {
-    for i := 1; i <= totalCars; i++ {
+func simulateVehicleFlow(carCount int, duration float64, parkingServiceHandler *service.ParkingServiceHandler) {
+    for i := 1; i <= carCount; i++ {
         time.Sleep(time.Duration(rand.ExpFloat64() * duration) * time.Millisecond)
         vehicle := &models.Vehicle{ID: i}
-        go parkingService.Arrive(vehicle)
+        go parkingServiceHandler.RegisterArrival(vehicle)
     }
 }

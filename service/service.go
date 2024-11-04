@@ -2,26 +2,26 @@ package service
 
 import "parking_simulator/models"
 
-type ParkingService struct {
-    parkingLot *models.ParkingLot 
+type ParkingServiceHandler struct {
+    parkingStructure *models.ParkingStructure
 }
 
-func NewParkingService(parkingLot *models.ParkingLot) *ParkingService {
-    return &ParkingService{parkingLot: parkingLot}
+func NewParkingServiceHandler(parkingStructure *models.ParkingStructure) *ParkingServiceHandler {
+    return &ParkingServiceHandler{parkingStructure: parkingStructure}
 }
 
-func (ps *ParkingService) Arrive(vehicle *models.Vehicle) {
-    ps.parkingLot.Arrive(vehicle)
+func (handler *ParkingServiceHandler) RegisterArrival(vehicle *models.Vehicle) {
+    handler.parkingStructure.RegisterArrival(vehicle)
 }
 
-func (ps *ParkingService) Depart(vehicle *models.Vehicle) {
-    ps.parkingLot.Depart(vehicle)
+func (handler *ParkingServiceHandler) RegisterDeparture(vehicle *models.Vehicle) {
+    handler.parkingStructure.RegisterDeparture(vehicle)
 }
 
-func (ps *ParkingService) GetOccupiedSpaces() ([]bool, []int) {
-    return ps.parkingLot.GetOccupiedSpaces()
+func (handler *ParkingServiceHandler) GetOccupiedSlots() ([]bool, []int) {
+    return handler.parkingStructure.GetOccupiedSlots()
 }
 
-func (ps *ParkingService) Capacity() int {
-    return ps.parkingLot.Capacity()
+func (handler *ParkingServiceHandler) TotalCapacity() int {
+    return handler.parkingStructure.TotalCapacity()
 }

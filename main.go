@@ -8,10 +8,10 @@ import (
 )
 
 func main() {
-    myApp := app.New()
-    parkingLot := models.NewParkingLot(20)
-    parkingService := service.NewParkingService(parkingLot)
+    simulatorApp := app.New()
+    parkingStructure := models.NewParkingStructure(20)
+    parkingServiceHandler := service.NewParkingServiceHandler(parkingStructure)
     
-    ui.CreateWindow(myApp, parkingService, 250, 100)
-    myApp.Run()
+    ui.GenerateWindow(simulatorApp, parkingServiceHandler, 250, 100)
+    simulatorApp.Run()
 }
