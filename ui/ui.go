@@ -34,7 +34,7 @@ func (c *CustomLabel) MinSize() fyne.Size {
 }
 
 func CreateWindow(app fyne.App, parkingService *service.ParkingService, duration float64, totalCars int) fyne.Window {
-    myWindow := app.NewWindow("Simulación de Estacionamiento")
+    myWindow := app.NewWindow("Parking Simulator")
 
     background := canvas.NewImageFromFile("./assets/background.jpg")
     background.FillMode = canvas.ImageFillStretch
